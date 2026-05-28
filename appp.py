@@ -250,7 +250,47 @@ def build_af_json(name: str, sequence: str) -> dict:
     }]
 
 
-def make_zip(extracted: dict[str, str], ref_name: str, res_start: int, res_end: int) -> bytes:
+def make_a3m(sequences_gapped: dict[str, str],
+             ref_name: str,
+             res_start: int,
+             res_end: int,
+             keep_names: set) -> str:
+    """
+    Build an A3M-format MSA for the selected region and sequences.
+    - Query (ref) is written ungapped.
+    - Aligned positions → uppercase (or '-' for deletions).
+    - Insertion columns (query has '-') → lowercase residue, omitted if also gap.
+    """
+    ref_seq = sequences_gapped[ref_name]
+    mapping = ref_to_aln_index(ref_seq)
+    col_start = mapping[res_start - 1]
+    col_end   = mapping[res_end - 1]
+    ref_slice = ref_seq[col_start : col_end + 1]
+
+    lines = [f">{ref_name}", ref_slice.replace("-", "")]
+
+    for name, seq in sequences_gapped.items():
+        if name == ref_name or name not in keep_names:
+            continue
+        seq_slice = seq[col_start : col_end + 1]
+        a3m_chars = []
+        for ref_char, seq_char in zip(ref_slice, seq_slice):
+            if ref_char != "-":
+                a3m_chars.append(seq_char.upper() if seq_char != "-" else "-")
+            else:
+                if seq_char != "-":
+                    a3m_chars.append(seq_char.lower())
+                # gap at insertion position → omit
+        result = "".join(a3m_chars)
+        if result.replace("-", ""):  # skip fully empty
+            lines.append(f">{name}")
+            lines.append(result)
+
+    return "\n".join(lines) + "\n"
+
+
+def make_zip(extracted: dict[str, str], ref_name: str, res_start: int, res_end: int,
+             sequences_gapped: dict[str, str] | None = None) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         # Individual JSONs
@@ -263,6 +303,14 @@ def make_zip(extracted: dict[str, str], ref_name: str, res_start: int, res_end: 
         # FASTA
         fasta_lines = [f">{n}\n{s}" for n, s in extracted.items()]
         zf.writestr("sequences.fasta", "\n".join(fasta_lines))
+
+        # A3M
+        if sequences_gapped:
+            a3m_text = make_a3m(
+                sequences_gapped, ref_name, res_start, res_end,
+                keep_names=set(extracted.keys()),
+            )
+            zf.writestr("alignment.a3m", a3m_text)
 
     return buf.getvalue()
 
@@ -416,10 +464,11 @@ if sequences:
                 }
                 skipped = len(extracted_raw) - len(extracted)
 
-                st.session_state["extracted"] = extracted
-                st.session_state["res_start"] = res_start
-                st.session_state["res_end"]   = res_end
-                st.session_state["skipped"]   = skipped
+                st.session_state["extracted"]        = extracted
+                st.session_state["res_start"]        = res_start
+                st.session_state["res_end"]          = res_end
+                st.session_state["skipped"]          = skipped
+                st.session_state["sequences_gapped"] = sequences
 
             except ValueError as e:
                 st.error(str(e))
@@ -474,12 +523,15 @@ if sequences:
 
         # Download
         st.markdown("#### Download")
-        zip_bytes = make_zip(extracted, ref_name, rs, re_)
+        zip_bytes = make_zip(
+            extracted, ref_name, rs, re_,
+            sequences_gapped=st.session_state.get("sequences_gapped"),
+        )
 
         dl_col1, dl_col2 = st.columns(2)
         with dl_col1:
             st.download_button(
-                label=f"⬇️  Download all ({len(extracted)} JSONs + FASTA)",
+                label=f"⬇️  Download all ({len(extracted)} JSONs + FASTA + A3M)",
                 data=zip_bytes,
                 file_name=f"af_region_{rs}-{re_}.zip",
                 mime="application/zip",
@@ -498,8 +550,8 @@ if sequences:
 
         st.markdown(
             "<p style='color:#8b949e;font-size:0.78rem;margin-top:0.5rem'>"
-            "ZIP contains one <code>.json</code> per sequence "
-            "and a <code>sequences.fasta</code>."
+            "ZIP contains one <code>.json</code> per sequence, "
+            "a <code>sequences.fasta</code>, and an <code>alignment.a3m</code>."
             "</p>",
             unsafe_allow_html=True,
         )
