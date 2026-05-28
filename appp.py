@@ -324,7 +324,7 @@ with st.sidebar:
 
 # ── Step 1: Upload ─────────────────────────────────────────────────────────────
 st.markdown("#### 1 · Upload alignment")
-uploaded = st.file_uploader("", type=["aln", "fasta", "fa", "txt"],
+uploaded = st.file_uploader("", type=["aln", "fasta", "fa", "fas", "txt"],
                              label_visibility="collapsed")
 
 sequences = {}
@@ -504,7 +504,7 @@ else:
         "<div class='card' style='text-align:center;padding:2.5rem;color:#8b949e'>"
         "<div style='font-size:2rem;margin-bottom:0.5rem'>📂</div>"
         "<div style='font-family:IBM Plex Mono,monospace;font-size:0.85rem'>"
-        "Upload a <code>.aln</code> or <code>.fasta</code> file to get started"
+        "Upload a <code>.aln</code>, <code>.fasta</code>, or <code>.fas</code> file to get started"
         "</div>"
         "</div>",
         unsafe_allow_html=True,
