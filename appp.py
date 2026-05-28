@@ -260,20 +260,6 @@ def make_zip(extracted: dict[str, str], ref_name: str, res_start: int, res_end: 
             data = json.dumps(build_af_json(job_name, seq), indent=2)
             zf.writestr(f"{safe}.json", data)
 
-        # Combined multimer JSON
-        af_sequences = [
-            {"proteinChain": {"sequence": seq, "count": 1}}
-            for seq in extracted.values()
-        ]
-        combined = [{
-            "name": f"multimer_r{res_start}-{res_end}",
-            "modelSeeds": [],
-            "sequences": af_sequences,
-            "dialect": "alphafoldserver",
-            "version": 1,
-        }]
-        zf.writestr("_combined_multimer.json", json.dumps(combined, indent=2))
-
         # FASTA
         fasta_lines = [f">{n}\n{s}" for n, s in extracted.items()]
         zf.writestr("sequences.fasta", "\n".join(fasta_lines))
@@ -316,9 +302,6 @@ with st.sidebar:
     st.markdown("### ⚙️ Settings")
     min_seq_len = st.slider("Min output sequence length (aa)", 5, 100, 20,
                             help="Sequences shorter than this after gap removal are excluded.")
-    fold_mode = st.radio("Output mode",
-                         ["Individual JSONs + combined multimer", "Individual JSONs only", "Combined multimer only"],
-                         index=0)
     st.markdown("---")
     st.markdown(
         "<p style='color:#8b949e;font-size:0.78rem'>"
@@ -515,8 +498,7 @@ if sequences:
 
         st.markdown(
             "<p style='color:#8b949e;font-size:0.78rem;margin-top:0.5rem'>"
-            "ZIP contains one <code>.json</code> per sequence, "
-            "a <code>_combined_multimer.json</code> with all chains, "
+            "ZIP contains one <code>.json</code> per sequence "
             "and a <code>sequences.fasta</code>."
             "</p>",
             unsafe_allow_html=True,
