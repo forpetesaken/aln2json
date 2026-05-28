@@ -342,12 +342,29 @@ if uploaded:
             f"</div>",
             unsafe_allow_html=True,
         )
+
+        st.markdown("#### 1b · Select species / sequences to include")
+        selected_names = st.multiselect(
+            "Sequences to include in output",
+            options=seq_names,
+            default=seq_names,
+            help="Only selected sequences will appear in the extracted JSONs. "
+                 "The reference sequence is always kept.",
+        )
+        # Ensure at least the reference key exists; filter after ref is chosen below
+        if not selected_names:
+            st.warning("No sequences selected — all will be used.")
+            selected_names = seq_names
+
+        sequences = {k: v for k, v in sequences.items() if k in selected_names}
+
     except Exception as e:
         st.error(f"Could not parse alignment: {e}")
         sequences = {}
 
 # ── Step 2: Reference + range ─────────────────────────────────────────────────
 if sequences:
+    # Always keep reference sequence in the dict even if somehow deselected
     st.markdown("#### 2 · Reference sequence & residue range")
 
     col1, col2, col3 = st.columns([3, 1, 1])
