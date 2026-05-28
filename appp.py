@@ -1,3 +1,4 @@
+import re
 import streamlit as st
 import json
 import zipfile
@@ -234,6 +235,11 @@ def extract_region(sequences: dict[str, str],
     return extracted
 
 
+def sanitize_name(name: str) -> str:
+    """Replace any character that isn't alphanumeric, hyphen, or underscore with '_'."""
+    return re.sub(r"[^A-Za-z0-9_-]", "_", name)
+
+
 def build_af_json(name: str, sequence: str) -> dict:
     return [{
         "name": name,
@@ -249,7 +255,7 @@ def make_zip(extracted: dict[str, str], ref_name: str, res_start: int, res_end: 
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         # Individual JSONs
         for name, seq in extracted.items():
-            safe = name.replace("/", "_").replace(" ", "_")
+            safe = sanitize_name(name)
             job_name = f"{safe}_r{res_start}-{res_end}"
             data = json.dumps(build_af_json(job_name, seq), indent=2)
             zf.writestr(f"{safe}.json", data)
@@ -503,7 +509,7 @@ if sequences:
                 st.download_button(
                     label=f"⬇️  Reference only ({ref_name})",
                     data=ref_json,
-                    file_name=f"{ref_name}_r{rs}-{re_}.json",
+                    file_name=f"{sanitize_name(ref_name)}_r{rs}-{re_}.json",
                     mime="application/json",
                 )
 
